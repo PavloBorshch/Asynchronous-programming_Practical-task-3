@@ -1,130 +1,56 @@
-import java.util.Random;
-import java.util.concurrent.*;
+package task1;
+
+
+import java.util.Scanner;
 
 public class Main {
+    public static void main(String[] args) throws Exception {
+        Scanner scanner = new Scanner(System.in);
 
-    // Метод для генерації матриці
-    public static int[][] generateMatrix(int rows, int cols, int min, int max) {
-        Random random = new Random();
-        int[][] matrix = new int[rows][cols];
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                matrix[i][j] = random.nextInt(max - min + 1) + min;
-            }
+        // Введення параметрів матриці користувачем
+        System.out.print("Введіть кількість рядків матриці: ");
+        int rows = scanner.nextInt(); // Кількість рядків
+
+        System.out.print("Введіть кількість стовпців матриці: ");
+        int cols = scanner.nextInt(); // Кількість стовпців
+
+        System.out.print("Введіть мінімальне значення елементів матриці: ");
+        int min = scanner.nextInt(); // Мінімальне значення елементів
+
+        System.out.print("Введіть максимальне значення елементів матриці: ");
+        int max = scanner.nextInt(); // Максимальне значення елементів
+
+        // Перевірка коректності введених значень
+        if (min > max) {
+            System.out.println("Помилка: мінімальне значення не може бути більшим за максимальне.");
+            return;
         }
-        return matrix;
-    }
-
-    // Метод для виводу матриці на екран
-    public static void printMatrix(int[][] matrix) {
-        for (int[] row : matrix) {
-            for (int value : row) {
-                System.out.print(value + "\t");
-            }
-            System.out.println();
-        }
-    }
-
-    // Work Stealing: Fork/Join Framework
-    static class ColumnSumTask extends RecursiveTask<int[]> {
-        private final int[][] matrix;
-        private final int start;
-        private final int end;
-
-        public ColumnSumTask(int[][] matrix, int start, int end) {
-            this.matrix = matrix;
-            this.start = start;
-            this.end = end;
-        }
-
-        @Override
-        protected int[] compute() {
-            if (end - start <= 1) { // Базовий випадок
-                int[] columnSums = new int[matrix[0].length];
-                for (int i = start; i < end; i++) {
-                    for (int j = 0; j < matrix[i].length; j++) {
-                        columnSums[j] += matrix[i][j];
-                    }
-                }
-                return columnSums;
-            } else { // Рекурсивний розподіл завдання
-                int mid = (start + end) / 2;
-                ColumnSumTask leftTask = new ColumnSumTask(matrix, start, mid);
-                ColumnSumTask rightTask = new ColumnSumTask(matrix, mid, end);
-                leftTask.fork();
-                int[] rightResult = rightTask.compute();
-                int[] leftResult = leftTask.join();
-
-                // Об'єднання результатів
-                for (int i = 0; i < rightResult.length; i++) {
-                    rightResult[i] += leftResult[i];
-                }
-                return rightResult;
-            }
-        }
-    }
-
-    // Work Dealing: ExecutorService
-    static class ColumnSumWorker implements Callable<int[]> {
-        private final int[][] matrix;
-        private final int col;
-
-        public ColumnSumWorker(int[][] matrix, int col) {
-            this.matrix = matrix;
-            this.col = col;
-        }
-
-        @Override
-        public int[] call() {
-            int sum = 0;
-            for (int[] row : matrix) {
-                sum += row[col];
-            }
-            return new int[]{col, sum};
-        }
-    }
-
-    public static void main(String[] args) throws InterruptedException, ExecutionException {
-        int rows = 50;  // Кількість рядків
-        int cols = 20;   // Кількість стовпців
-        int min = 0;      // Мінімальне значення
-        int max = 100;     // Максимальне значення
 
         // Генерація матриці
-        int[][] matrix = generateMatrix(rows, cols, min, max);
+        int[][] matrix = MatrixUtils.generateMatrix(rows, cols, min, max);
 
-        System.out.println("Згенерована матриця:");
-        printMatrix(matrix);
+        // Вивід згенерованої матриці
+        System.out.println("\nЗгенерована матриця:");
+        MatrixUtils.printMatrix(matrix);
 
-        // Work Stealing: Fork/Join
-        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        // Виконання Work Stealing
         long start = System.nanoTime();
-        int[] workStealingResult = forkJoinPool.invoke(new ColumnSumTask(matrix, 0, rows));
+        int[] workStealingResult = WorkStealing.computeColumnSums(matrix);
         long end = System.nanoTime();
-        System.out.println("Work Stealing (Fork/Join):");
+        System.out.println("\nWork Stealing (Fork/Join):");
         for (int i = 0; i < workStealingResult.length; i++) {
-            System.out.println("Column " + i + ": " + workStealingResult[i]);
+            System.out.println("Стовпець " + i + ": " + workStealingResult[i]);
         }
-        System.out.println("Час виконання: " + (end - start) / 1e6 + " мс");
+        System.out.println("\nЧас виконання: " + (end - start) / 1e6 + " мс\n");
 
-        // Work Dealing: ExecutorService
-        ExecutorService executor = Executors.newFixedThreadPool(10);
+        // Виконання Work Dealing
         start = System.nanoTime();
-        Future<int[]>[] futures = new Future[cols];
-        for (int i = 0; i < cols; i++) {
-            futures[i] = executor.submit(new ColumnSumWorker(matrix, i));
-        }
-        int[] workDealingResult = new int[cols];
-        for (Future<int[]> future : futures) {
-            int[] result = future.get();
-            workDealingResult[result[0]] = result[1];
-        }
-        executor.shutdown();
+        int[] workDealingResult = WorkDealing.computeColumnSums(matrix);
         end = System.nanoTime();
-        System.out.println("Work Dealing (ExecutorService):");
+        System.out.println("\nWork Dealing (ExecutorService):");
         for (int i = 0; i < workDealingResult.length; i++) {
-            System.out.println("Column " + i + ": " + workDealingResult[i]);
+            System.out.println("Стовпець " + i + ": " + workDealingResult[i]);
         }
-        System.out.println("Час виконання: " + (end - start) / 1e6 + " мс");
+        System.out.println("\nЧас виконання: " + (end - start) / 1e6 + " мс\n");
     }
 }
