@@ -37,10 +37,12 @@ Work Dealing (ExecutorService):
 У результаті потрібно вивести кількість знайдених файлів.
 
 Вигляд директорії:
+
 ![image](https://github.com/user-attachments/assets/26f7ddab-b9de-44bc-bd80-f04621206d3b)
 
 
 Результати виконання програми:
+
 ![image](https://github.com/user-attachments/assets/23d30b91-37ee-426c-ab17-974c73003c09)
 
 
